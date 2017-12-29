@@ -1,0 +1,527 @@
+---
+title: "Analysis Of Fund zhanbo"
+author: "Wu Wei"
+date: "2017-9-7"
+output: html_document
+---
+
+
+
+## 1 Library input & Data Input
+```{r, eval=TRUE}
+rm(list = ls())
+
+suppressMessages(library(forecast))
+suppressMessages(library(ggplot2))
+suppressMessages(library(rugarch))
+suppressMessages(library(lmtest))
+suppressMessages(library(tseries))
+suppressMessages(library(fBasics))
+suppressMessages(library(car))
+suppressMessages(library(FinTS))
+suppressMessages(library(grid))
+suppressMessages(library(gridExtra))
+suppressMessages(library(vars))
+```
+
+```{r source, echo = FALSE}
+source("d://MyR//dongfanghong//ComputeMarketModel.R")
+source("d://MyR//dongfanghong//ComputeTMModel.R")
+source("d://MyR//dongfanghong//ComputeHMModel.R")
+source("d://MyR//dongfanghong//panel_cor.R")
+
+source("d://MyR//zhao//CreateTSPYearMonthLabel.r")
+
+source("d://MyR//stock//CompareObjectAccuracy.R")
+source("d://MyR//stock//CompareObjectNaiveAccuracy.R")
+
+source("d://MyR//stock//CompareObjectZeroDiffAccuracy.R")
+```
+
+```{r, eval=TRUE}
+setwd("d://MyR//zhanbo//")
+zhanbo.original.data <- read.csv("zhanbomonthlyjingzhi.csv")
+# (original.data)
+
+zhanbo.close.price <- ts(zhanbo.original.data[,2], start = c(2009, 6 ), frequency = 12)
+names(zhanbo.close.price) <- as.character(zhanbo.original.data[,1])
+
+money.interest <- ts(zhanbo.original.data[,3], start = c(2009, 6 ), frequency = 12)
+hushen300.price <- ts(zhanbo.original.data[,4], start = c(2009, 6 ), frequency = 12)
+zz500.price <- ts(zhanbo.original.data[,5], start = c(2009, 6 ), frequency = 12)
+zz800.price <- ts(zhanbo.original.data[,6], start = c(2009, 6 ), frequency = 12)
+
+jinglin.price <- ts(zhanbo.original.data[,7], start = c(2009, 6 ), frequency = 12)
+szhl.price <- ts(zhanbo.original.data[,8], start = c(2009, 6 ), frequency = 12)
+```
+
+```{r}
+zhanbo.monthly.return <- ts(diff(log(zhanbo.close.price)), start = c(2009,7), frequency = 12)
+
+hushen300.monthly.return <- diff(log(hushen300.price))
+
+zz500.monthly.return <- diff(log(zz500.price))
+
+zz800.monthly.return <- diff(log(zz800.price))
+
+jinglin.monthly.return <- diff(log(jinglin.price))
+
+szhl.monthly.return <- diff(log(szhl.price))
+
+money.monthly.interest <- ts(log(1 + (money.interest[-1] / 12)),start = c(2009,7), frequency = 12)
+
+```
+
+```{r}
+hushen300.monthly.return.no.risk <- ts(round(as.numeric(hushen300.monthly.return - money.monthly.interest) * 100, 
+                                              digits = 2), 
+                                       start = c(2009,7), frequency = 12)
+
+zz500.monthly.return.no.risk <- ts(round(as.numeric(zz500.monthly.return - money.monthly.interest) * 100, 
+                                              digits = 2), 
+                                       start = c(2009,7), frequency = 12)
+
+zz800.monthly.return.no.risk <- ts(round(as.numeric(zz800.monthly.return - money.monthly.interest) * 100, 
+                                              digits = 2), 
+                                       start = c(2009,7), frequency = 12)
+
+zhanbo.monthly.return.no.risk <- ts(round(as.numeric((zhanbo.monthly.return - money.monthly.interest) * 100),
+                                     digits = 2),start = c(2009,7), frequency = 12)
+
+jinglin.monthly.return.no.risk <- ts(round(as.numeric((jinglin.monthly.return - money.monthly.interest) * 100),
+                                     digits = 2),start = c(2009,7), frequency = 12)
+
+szhl.monthly.return.no.risk <- ts(round(as.numeric((szhl.monthly.return - money.monthly.interest) * 100),
+                                     digits = 2),start = c(2009,7), frequency = 12)
+
+```
+
+```{r}
+cor(zhanbo.monthly.return.no.risk, jinglin.monthly.return.no.risk)
+```
+
+
+
+```{r}
+zhanbo.yearly.return <- diff(log(zhanbo.close.price), lag = 12)
+```
+
+
+## 2 Analysis for monthly return
+```{r, eval=TRUE}
+
+
+plot(zhanbo.monthly.return, type = "l")
+
+abline(h = 0, col = "red")
+```
+
+```{r, eval=TRUE}
+
+ndiffs(zhanbo.monthly.return)
+
+```
+
+```{r, fig.height=8, fig.width=10}
+
+tsdisplay(zhanbo.monthly.return)
+
+```
+
+
+
+```{r, eval=TRUE}
+# mean(zhanbo.monthly.return)
+# 
+# mean(zhanbo.monthly.return) * 12
+# 
+# sd(zhanbo.monthly.return)
+# 
+# sd(zhanbo.monthly.return) * sqrt(12)
+# 
+# quantile(zhanbo.monthly.return, c(0.05, seq(0,1,0.25)))
+
+skewness(zhanbo.monthly.return)
+kurtosis(zhanbo.monthly.return)
+jarqueberaTest(zhanbo.monthly.return)
+
+
+```
+
+
+```{r main 2.7,  fig.height=3, fig.width=8, echo=FALSE}
+
+d <- 
+data.frame("从2009年至今的月收益均值" = paste0(round(mean(hushen300.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益波动率" = paste0(round(sd(hushen300.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益下限" = paste0(round(quantile(hushen300.monthly.return, 0.05)*100,digits = 2),"%"),
+                "从2009年至今的月收益夏普比例" = round(mean(hushen300.monthly.return.no.risk) / (100 *sd(hushen300.monthly.return)),digits = 2))
+
+row.names(d)[1] <- "沪深300"
+
+
+d <- rbind(d,
+data.frame("从2009年至今的月收益均值" = paste0(round(mean(zz500.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益波动率" = paste0(round(sd(zz500.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益下限" = paste0(round(quantile(zz500.monthly.return, 0.05)*100,digits = 2),"%"),
+                "从2009年至今的月收益夏普比例" = round(mean(zz500.monthly.return.no.risk) / (100 *sd(zz500.monthly.return)),digits = 2)))
+
+row.names(d)[2] <- "中证500"
+
+d <- rbind(d,
+data.frame("从2009年至今的月收益均值" = paste0(round(mean(zhanbo.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益波动率" = paste0(round(sd(zhanbo.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益下限" = paste0(round(quantile(zhanbo.monthly.return, 0.05)*100,digits = 2),"%"),
+                "从2009年至今的月收益夏普比例" = round(mean(zhanbo.monthly.return.no.risk) / (100 *sd(zhanbo.monthly.return)),digits = 2)))
+
+row.names(d)[3] <- "展博一期"
+
+d <- rbind(d,
+data.frame("从2009年至今的月收益均值" = paste0(round(mean(jinglin.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益波动率" = paste0(round(sd(jinglin.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益下限" = paste0(round(quantile(jinglin.monthly.return, 0.05)*100,digits = 2),"%"),
+                "从2009年至今的月收益夏普比例" = round(mean(jinglin.monthly.return.no.risk) / (100 *sd(jinglin.monthly.return)),digits = 2)))
+
+row.names(d)[4] <- "景林稳健"
+
+d <- rbind(d,
+data.frame("从2009年至今的月收益均值" = paste0(round(mean(szhl.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益波动率" = paste0(round(sd(szhl.monthly.return)*100,digits = 2),"%"),
+                "从2009年至今的月收益下限" = paste0(round(quantile(szhl.monthly.return, 0.05)*100,digits = 2),"%"),
+                "从2009年至今的月收益夏普比例" = round(mean(szhl.monthly.return.no.risk) / (100 *sd(jinglin.monthly.return)),digits = 2)))
+
+row.names(d)[5] <- "深证红利"
+
+
+g <- tableGrob(t(d))
+grid.newpage()
+grid.draw(g)
+```
+
+
+
+
+## 3.  Analysis of monthly return between zhanbo and hushen300 with money interest subtracted
+
+### 3.1 Analysis of total data
+
+
+```{r}
+# cor(hushen300.monthly.return.no.risk, zhanbo.monthly.return.no.risk)
+
+# cor(data.frame(hushen300 = as.numeric(hushen300.monthly.return.no.risk), 
+#                  zz500 = as.numeric(zz500.monthly.return.no.risk),
+#                  szhl = as.numeric(szhl.monthly.return.no.risk)))
+
+```
+
+```{r, fig.height=7, fig.width=9}
+
+pairs(data.frame(zhanbo = as.numeric(zhanbo.monthly.return.no.risk),
+                 hushen300 = as.numeric(hushen300.monthly.return.no.risk), 
+                 zz500 = as.numeric(zz500.monthly.return.no.risk)),
+      upper.panel = panel.cor)
+```
+
+
+
+```{r}
+fit.4 <- lm(zhanbo.monthly.return.no.risk ~ zz500.monthly.return.no.risk)
+
+fit.5 <- lm(zhanbo.monthly.return.no.risk ~ hushen300.monthly.return.no.risk + zz500.monthly.return.no.risk)
+
+anova(fit.4, fit.5)
+```
+
+```{r}
+
+fit.6 <- lm(zhanbo.monthly.return.no.risk ~ zz800.monthly.return.no.risk)
+
+```
+
+```{r}
+fit.8 <- lm(zhanbo.monthly.return.no.risk ~ hushen300.monthly.return.no.risk)
+
+```
+
+
+```{r}
+summary(fit.4)
+summary(fit.6)
+summary(fit.8)
+```
+
+
+
+```{r, fig.height=6, fig.width=8}
+plot(fit.4, which = 1)
+plot(fit.4, which = 2)
+
+
+sort(round(hatvalues(fit.4), 3))
+
+sort(round(dfbetas(fit.4)[,2], 3))
+
+```
+
+
+
+```{r, fig.height=6, fig.width=8}
+plot(as.numeric(zz500.monthly.return.no.risk), 
+     as.numeric(zhanbo.monthly.return.no.risk), 
+     type = "p", 
+     xlab = "中证500月度超额收益率%", 
+     ylab = "展博1期月度超额收益率%", 
+     main = "证券特征线")
+
+abline(h = 0, v = 0, col = "green")
+points(tail(zz500.monthly.return.no.risk), tail(zhanbo.monthly.return.no.risk), col = "purple", pch = 20)
+
+abline(fit.4)
+
+```
+
+### 3.1.1 Analysis of total data using TM model
+```{r}
+zz500.monthly.return.square <- zz500.monthly.return.no.risk^2
+
+fit.tm <- lm(zhanbo.monthly.return.no.risk ~ zz500.monthly.return.no.risk + 
+                     zz500.monthly.return.square)
+
+summary(fit.tm)
+```
+
+### 3.1.2 Analysis of total data using HM model
+```{r}
+
+zz500.monthly.return.positive <- zz500.monthly.return.no.risk
+zz500.monthly.return.positive[zz500.monthly.return.positive < 0] <- 0
+
+fit.hm <- lm(zhanbo.monthly.return.no.risk ~ zz500.monthly.return.no.risk + 
+                     zz500.monthly.return.positive)
+
+summary(fit.hm)
+```
+
+### 3.2 Analysis of moving 12 months data
+
+```{r}
+alpha <- ts(rep(0,length(zhanbo.monthly.return.no.risk)), start = c(2009,7), frequency = 12)
+beta <- alpha
+gamma <- alpha
+
+return.matrix.tm <- cbind(zhanbo.monthly.return.no.risk, 
+                       zz500.monthly.return.no.risk, 
+                       alpha, 
+                       beta,
+                       gamma) 
+
+dimnames(return.matrix.tm)[[2]][1] <- "zhanbo"
+dimnames(return.matrix.tm)[[2]][2] <- "zz500"
+
+return.matrix.hm <- return.matrix.tm
+
+return.matrix <- return.matrix.tm[,1:4]
+```
+
+```{r}
+return.matrix <- ComputeMarketModel(return.matrix)
+
+window(return.matrix, start = c(2017,1))
+```
+
+```{r, fig.height=18, fig.width=10}
+
+
+start.time <- tsp(return.matrix)[1]
+end.time <- tsp(return.matrix)[2]
+month.interval <- 1
+
+result.tsp.label <- CreateTSPYearMonthLabel(start.time, end.time, month.interval)
+
+x.axis.grid.points <- result.tsp.label[, "x.axis.grid.points"]
+x.axis.grid.labels <- result.tsp.label[, "x.axis.grid.labels"]
+
+
+```
+
+
+```{r, fig.height=10, fig.width=10}
+plot.layout.matrix <- matrix(c(1,2,3), 
+                             nr = 3,
+                             byrow = TRUE)
+
+layout(plot.layout.matrix)
+
+plot(return.matrix[,"zhanbo"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+
+plot(return.matrix[,"alpha"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+plot(return.matrix[,"beta"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+
+layout(matrix(1))
+```
+
+#### 3.2.1 Analysis of moving 12 months data using TM model
+
+
+```{r 3.2.1}
+return.matrix.tm <- ComputeTMModel(return.matrix.tm)
+
+window(return.matrix.tm, start = c(2017,1))
+```
+
+```{r}
+fit.alpha <- auto.arima(return.matrix.tm[,"alpha"], d = 0)
+estimated.alpha <- forecast(fit.alpha, h = 3)$mean
+```
+
+
+```{r 3.2.2, fig.height=12, fig.width=10}
+plot.layout.matrix <- matrix(c(1,2,3,4), 
+                             nr = 4,
+                             byrow = TRUE)
+
+layout(plot.layout.matrix)
+
+
+plot(return.matrix.tm[,"zhanbo"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+plot(return.matrix.tm[,"alpha"],axes = FALSE,type = "o")
+lines(estimated.alpha, 
+      type = "o", 
+      col = "red",
+      lwd = 2)
+
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+plot(return.matrix.tm[,"beta"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+plot(return.matrix.tm[,"gamma"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+
+layout(matrix(1))
+```
+
+
+
+
+
+
+
+
+
+
+#### 3.2.2 Analysis of moving 12 months data using HM model
+
+
+```{r}
+return.matrix.hm <- ComputeHMModel(return.matrix.hm)
+
+window(return.matrix.hm, start = c(2017,1))
+```
+
+```{r, fig.height=12, fig.width=10}
+plot.layout.matrix <- matrix(c(1,2,3,4), 
+                             nr = 4,
+                             byrow = TRUE)
+
+layout(plot.layout.matrix)
+
+plot(return.matrix.hm[,"zhanbo"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+plot(return.matrix.hm[,"alpha"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+plot(return.matrix.hm[,"beta"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+plot(return.matrix.hm[,"gamma"],axes = FALSE,type = "o")
+axis(1, at = x.axis.grid.points, labels = x.axis.grid.labels)
+axis(2, las = 1)
+abline(v = x.axis.grid.points, col = "grey", lty = "dotted")
+abline(h = 0, col = "green")
+
+
+layout(matrix(1))
+```
+
+
+## 4 Analysis for yearly return
+
+```{r, eval=TRUE}
+
+
+plot(zhanbo.yearly.return, type = "l")
+abline(h = 0, col = "red")
+```
+
+```{r, eval=TRUE}
+
+ndiffs(zhanbo.yearly.return)
+
+```
+
+```{r, fig.height=8, fig.width=10}
+
+tsdisplay(zhanbo.yearly.return)
+
+```
+
+
+```{r, eval=TRUE}
+mean(zhanbo.yearly.return)
+sd(zhanbo.yearly.return)
+
+quantile(zhanbo.yearly.return, c(0.05, seq(0,1,0.25)))
+
+tail(zhanbo.yearly.return, 2)
+
+skewness(zhanbo.yearly.return)
+kurtosis(zhanbo.yearly.return)
+jarqueberaTest(zhanbo.yearly.return)
+
+Acf(zhanbo.yearly.return)
+```
+
+
+

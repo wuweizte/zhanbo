@@ -1,0 +1,475 @@
+---
+title: "Analysis Of Fund zhanbo"
+author: "Wu Wei"
+date: "2017-9-7"
+output: html_document
+---
+
+
+
+## 1 Library input & Data Input
+```{r, eval=TRUE}
+rm(list = ls())
+
+suppressMessages(library(forecast))
+suppressMessages(library(ggplot2))
+suppressMessages(library(rugarch))
+suppressMessages(library(lmtest))
+suppressMessages(library(tseries))
+suppressMessages(library(fBasics))
+suppressMessages(library(car))
+suppressMessages(library(FinTS))
+suppressMessages(library(grid))
+suppressMessages(library(gridExtra))
+suppressMessages(library(vars))
+```
+
+```{r source, echo = FALSE}
+source("d://MyR//dongfanghong//ComputeMarketModel.R")
+source("d://MyR//dongfanghong//ComputeTMModel.R")
+source("d://MyR//dongfanghong//ComputeHMModel.R")
+source("d://MyR//dongfanghong//panel_cor.R")
+
+source("d://MyR//zhao//CreateTSPYearMonthLabel.r")
+
+source("d://MyR//stock//CompareObjectAccuracy.R")
+source("d://MyR//stock//CompareObjectNaiveAccuracy.R")
+
+source("d://MyR//stock//CompareObjectZeroDiffAccuracy.R")
+source("d://MyR//stock//CompareVARAccuracy.r")
+source("d://MyR//stock//CompareVARInDiffAccuracy.r")
+
+source("d://MyR//stock//ResultVARinDiffByRoot.R")
+source("d://MyR//stock//ResultZeroDiffARIMA.R")
+```
+
+```{r, eval=TRUE}
+setwd("d://MyR//zhanbo//")
+zhanbo.original.data <- read.csv("zhanbomonthlyjingzhi.csv")
+# (original.data)
+
+zhanbo.close.price <- ts(zhanbo.original.data[,2], start = c(2009, 6 ), frequency = 12)
+names(zhanbo.close.price) <- as.character(zhanbo.original.data[,1])
+
+money.interest <- ts(zhanbo.original.data[,3], start = c(2009, 6 ), frequency = 12)
+hushen300.price <- ts(zhanbo.original.data[,4], start = c(2009, 6 ), frequency = 12)
+zz500.price <- ts(zhanbo.original.data[,5], start = c(2009, 6 ), frequency = 12)
+zz800.price <- ts(zhanbo.original.data[,6], start = c(2009, 6 ), frequency = 12)
+
+jinglin.price <- ts(zhanbo.original.data[,7], start = c(2009, 6 ), frequency = 12)
+szhl.price <- ts(zhanbo.original.data[,8], start = c(2009, 6 ), frequency = 12)
+```
+
+```{r}
+zhanbo.monthly.return <- ts(diff(log(zhanbo.close.price)), start = c(2009,7), frequency = 12)
+
+hushen300.monthly.return <- diff(log(hushen300.price))
+
+zz500.monthly.return <- diff(log(zz500.price))
+
+zz800.monthly.return <- diff(log(zz800.price))
+
+jinglin.monthly.return <- diff(log(jinglin.price))
+
+szhl.monthly.return <- diff(log(szhl.price))
+
+money.monthly.interest <- ts(log(1 + (money.interest[-1] / 12)),start = c(2009,7), frequency = 12)
+
+```
+
+```{r}
+hushen300.monthly.return.no.risk <- ts(round(as.numeric(hushen300.monthly.return - money.monthly.interest) * 100, 
+                                              digits = 2), 
+                                       start = c(2009,7), frequency = 12)
+
+zz500.monthly.return.no.risk <- ts(round(as.numeric(zz500.monthly.return - money.monthly.interest) * 100, 
+                                              digits = 2), 
+                                       start = c(2009,7), frequency = 12)
+
+zz800.monthly.return.no.risk <- ts(round(as.numeric(zz800.monthly.return - money.monthly.interest) * 100, 
+                                              digits = 2), 
+                                       start = c(2009,7), frequency = 12)
+
+zhanbo.monthly.return.no.risk <- ts(round(as.numeric((zhanbo.monthly.return - money.monthly.interest) * 100),
+                                     digits = 2),start = c(2009,7), frequency = 12)
+
+jinglin.monthly.return.no.risk <- ts(round(as.numeric((jinglin.monthly.return - money.monthly.interest) * 100),
+                                     digits = 2),start = c(2009,7), frequency = 12)
+
+szhl.monthly.return.no.risk <- ts(round(as.numeric((szhl.monthly.return - money.monthly.interest) * 100),
+                                     digits = 2),start = c(2009,7), frequency = 12)
+
+```
+
+
+## 2 Analysis of moving 12 months data using TM model
+
+```{r}
+alpha <- ts(rep(0,length(zhanbo.monthly.return.no.risk)), start = c(2009,7), frequency = 12)
+beta <- alpha
+gamma <- alpha
+
+return.matrix.tm <- cbind(zhanbo.monthly.return.no.risk, 
+                       zz500.monthly.return.no.risk, 
+                       alpha, 
+                       beta,
+                       gamma) 
+
+dimnames(return.matrix.tm)[[2]][1] <- "zhanbo"
+dimnames(return.matrix.tm)[[2]][2] <- "zz500"
+
+
+```
+
+
+
+```{r 2.1}
+return.matrix.tm <- ComputeTMModel(return.matrix.tm)
+
+window(return.matrix.tm, start = c(2017,1))
+```
+
+
+
+```{r 2.3}
+tsdisplay(return.matrix.tm[,"alpha"])
+
+auto.arima(return.matrix.tm[,"alpha"])
+
+auto.arima(return.matrix.tm[,"alpha"], d = 0)
+
+
+```
+
+### 2.1 ARIMA vs. Naive
+
+```{r 2.4}
+comparison.period <- 20
+
+forecast.period <- 3
+
+maxorder <- 5
+
+training.set.endpoint <- length(return.matrix.tm[,"alpha"]) - comparison.period - forecast.period
+```
+
+```{r 2.5, cache=TRUE}
+result.pure.alpha <- CompareObjectAccuracy(arg.object = return.matrix.tm[,"alpha"],
+                                                 arg.forecast.period = forecast.period,
+                                                 arg.training.set.endpoint = training.set.endpoint,
+                                                 arg.comparison.period = comparison.period,
+                                                 arg.maxorder = maxorder)
+
+```
+
+```{r 2.6}
+
+
+result.naive.alpha <- CompareObjectNaiveAccuracy(arg.object = return.matrix.tm[,"alpha"],
+                                                 arg.forecast.period = forecast.period,
+                                                 arg.training.set.endpoint = training.set.endpoint,
+                                                 arg.comparison.period = comparison.period,
+                                                 arg.maxorder = maxorder)
+
+
+```
+
+```{r 2.7}
+
+
+final.result.alpha <- cbind(result.pure.alpha,
+                      result.naive.alpha)
+
+
+final.result.alpha <- final.result.alpha[, -c(5,12)]
+
+colnames(final.result.alpha) <- c("seq", "p","d","q", "RMSE", "p.v",
+                                  "seq2", "p2","d2","q2", "RMSE2", "p.v2")
+
+print(final.result.alpha)
+
+sum(final.result.alpha$RMSE > final.result.alpha$RMSE2)
+
+model.name <- c("pure Arima",
+                   "naive model")
+
+average.rmse <- c(mean(final.result.alpha$RMSE),
+                    mean(final.result.alpha$RMSE2))
+
+sd.rmse <- c(sd(final.result.alpha$RMSE),
+                    sd(final.result.alpha$RMSE2))
+
+pv.up.0.05 <- c(sum(final.result.alpha$p.v >= 0.05),
+                sum(final.result.alpha$p.v2 >= 0.05))
+
+
+df.accuracy <- data.frame(model = model.name,
+                          average.rmse = average.rmse,
+                          sd.rmse = sd.rmse,
+                          pv.up.0.05 = pv.up.0.05)
+
+print(df.accuracy)
+
+t.test(result.pure.alpha$RMSE - result.naive.alpha$RMSE)
+
+```
+
+
+### 2.2 ARIMA vs. Zero diff
+
+```{r 2.8, cache=TRUE}
+
+
+result.zero.diff.alpha <- CompareObjectZeroDiffAccuracy(arg.object = return.matrix.tm[,"alpha"],
+                                                 arg.forecast.period = forecast.period,
+                                                 arg.training.set.endpoint = training.set.endpoint,
+                                                 arg.comparison.period = comparison.period,
+                                                 arg.maxorder = maxorder)
+```
+
+
+```{r 2.9}
+t.test(result.pure.alpha$RMSE - result.zero.diff.alpha$RMSE)
+
+final.result.alpha <- cbind(result.pure.alpha,
+                      result.zero.diff.alpha)
+
+final.result.alpha <- final.result.alpha[, -c(5,12)]
+
+colnames(final.result.alpha) <- c("seq", "p","d","q", "RMSE", "p.v",
+                                  "seq2", "p2","d2","q2", "RMSE2", "p.v2")
+
+print(final.result.alpha)
+
+sum(final.result.alpha$RMSE > final.result.alpha$RMSE2)
+
+model.name <- c("pure alpha Arima",
+                   "zero ARIMA")
+
+average.rmse <- c(mean(final.result.alpha$RMSE),
+                    mean(final.result.alpha$RMSE2))
+
+sd.rmse <- c(sd(final.result.alpha$RMSE),
+                    sd(final.result.alpha$RMSE2))
+
+pv.up.0.05 <- c(sum(final.result.alpha$p.v >= 0.05),
+                sum(final.result.alpha$p.v2 >= 0.05))
+
+
+df.accuracy <- data.frame(model = model.name,
+                          average.rmse = average.rmse,
+                          sd.rmse = sd.rmse,
+                          pv.up.0.05 = pv.up.0.05)
+
+print(df.accuracy)
+
+
+
+
+```
+
+### 2.3 VAR vs. Zero diff
+
+```{r appendix 2.3.1, fig.height=5, fig.width=7, echo = TRUE, cache=FALSE, eval=TRUE}
+
+pairs(data.frame(alpha = as.numeric(return.matrix.tm[,"alpha"]),
+                 beta = as.numeric(return.matrix.tm[,"beta"]), 
+                 gamma = as.numeric(return.matrix.tm[,"gamma"])),
+      upper.panel = panel.cor)
+
+```
+
+
+
+```{r appendix 2.3.2, fig.height=5, fig.width=7, echo = TRUE, cache=FALSE, eval=TRUE}
+
+ndiffs(return.matrix.tm[,"alpha"])
+ndiffs(return.matrix.tm[,"beta"])
+ndiffs(return.matrix.tm[,"gamma"])
+
+
+ndiffs(diff(return.matrix.tm[,"alpha"]))
+ndiffs(diff(return.matrix.tm[,"beta"]))
+ndiffs(diff(return.matrix.tm[,"gamma"]))
+```
+
+
+```{r appendix 2.3.3, fig.height=5, fig.width=7, echo = TRUE}
+
+cot <- ca.jo(return.matrix.tm[, -c(1:2)], ecdet = "const", type = "trace", K = 3, spec = "transitory")
+summary(cot)
+
+col <- ca.jo(return.matrix.tm[, -c(1:2)], ecdet = "const", type = "eigen", K = 3, spec = "transitory")
+summary(col)
+
+```
+
+
+```{r appendix 2.3.4, fig.height=5, fig.width=7, echo = TRUE, cache=FALSE, eval=TRUE}
+
+
+result.var.alpha <- CompareVARAccuracy(arg.object = return.matrix.tm[, -c(1:2)],
+                                       arg.forecast.period = forecast.period,
+                                       arg.training.set.endpoint = training.set.endpoint,
+                                       arg.comparison.period = comparison.period,
+                                       arg.comparison.colname = "alpha")
+```
+
+
+
+```{r appendix 2.3.5, fig.height=5, fig.width=7, echo = TRUE, cache=FALSE, eval=TRUE}
+t.test(result.zero.diff.alpha$RMSE - result.var.alpha$RMSE)
+
+final.result <- cbind(result.zero.diff.alpha,
+                      result.var.alpha)[,-c(5,11)]
+
+
+colnames(final.result) <- c("seq", "p","d","q", "RMSE","p.v", 
+                            "seq2","RMSE2", "p.v2", "root","porder")
+
+print(final.result)
+
+model.name <- c("zero diff Arima",
+                   "VAR")
+
+
+average.rmse <- c(mean(final.result$RMSE),
+                  mean(final.result$RMSE2))
+
+sd.rmse <- c(sd(final.result$RMSE),
+                  sd(final.result$RMSE2))
+
+pv.up.0.05 <- c(sum(final.result$p.v >= 0.05),
+                sum(final.result$p.v2 >= 0.05))
+
+df.accuracy <- data.frame(model = model.name,
+                          average.rmse = average.rmse,
+                          sd.rmse = sd.rmse,
+                          pv.up.0.05 = pv.up.0.05)
+
+print(df.accuracy)
+
+mean(final.result$RMSE > final.result$RMSE2) 
+
+```
+
+### 2.4 VAR in diff vs. Zero diff
+```{r appendix 2.4.2, fig.height=5, fig.width=7, echo = TRUE, cache=FALSE, eval=TRUE}
+
+
+result.varindiff.alpha <- CompareVARInDiffAccuracy(arg.object = return.matrix.tm[, -c(1:2)],
+                                       arg.forecast.period = forecast.period,
+                                       arg.training.set.endpoint = training.set.endpoint,
+                                       arg.comparison.period = comparison.period,
+                                       arg.comparison.colname = "alpha")
+```
+
+```{r appendix 2.4.3, fig.height=5, fig.width=7, echo = TRUE, cache=FALSE, eval=TRUE}
+t.test(result.zero.diff.alpha$RMSE - result.varindiff.alpha$RMSE)
+```
+
+```{r appendix 2.4.4, fig.height=5, fig.width=7, echo = TRUE, cache=FALSE, eval=TRUE}
+final.result <- cbind(result.zero.diff.alpha,
+                      result.varindiff.alpha)
+
+
+colnames(final.result) <- c("seq", "p","d","q", "sigma","RMSE", "p.v","seq2", 
+                            "RMSE2", "p.v2", "sigma2","max.root","p.order")
+
+print(final.result)
+
+model.name <- c("zero.diff.Arima",
+                   "VAR in difference")
+
+average.rmse <- c(mean(final.result$RMSE),
+                  mean(final.result$RMSE2))
+
+sd.rmse <- c(sd(final.result$RMSE),
+                  sd(final.result$RMSE2))
+
+pv.up.0.05 <- c(sum(final.result$p.v >= 0.05),
+                sum(final.result$p.v2 >= 0.05))
+
+df.accuracy <- data.frame(model = model.name,
+                          average.rmse = average.rmse,
+                          sd.rmse = sd.rmse,
+                          pv.up.0.05 = pv.up.0.05)
+
+print(df.accuracy)
+
+mean(final.result$RMSE > final.result$RMSE2) 
+
+```
+
+### 2.5 Comparison of Hybrid model with VAR / VAR in difference By root model and Zero Difference model
+
+```{r appendix 2.5.1, fig.height=5, fig.width=7, echo = TRUE, cache=TRUE, eval=TRUE}
+
+
+ls.result.zero.diff.alpha <- ResultZeroDiffARIMA(arg.object = return.matrix.tm[,"alpha"],
+                                                 arg.forecast.period = forecast.period,
+                                                 arg.training.set.endpoint = training.set.endpoint,
+                                                 arg.comparison.period = comparison.period,
+                                                 arg.maxorder = maxorder)
+```
+
+```{r appendix 2.5.2, fig.height=5, fig.width=7, echo = TRUE, cache=TRUE, eval=TRUE}
+
+ls.result.varindiffbyroot.alpha <- ResultVARinDiffByRoot(arg.object = return.matrix.tm[, -c(1:2)],
+                                       arg.forecast.period = forecast.period,
+                                       arg.training.set.endpoint = training.set.endpoint,
+                                       arg.comparison.period = comparison.period,
+                                       arg.comparison.colname = "alpha")
+```
+
+```{r appendix 2.5.3, fig.height=5, fig.width=7, echo = TRUE, eval=TRUE}
+fc.result.varindiffbyroot <- ls.result.varindiffbyroot.alpha$fc.result
+test.set.result.varindiffbyroot <- ls.result.varindiffbyroot.alpha$test.set.result
+
+rmse.varindiffbyroot <- sqrt(rowMeans((fc.result.varindiffbyroot - test.set.result.varindiffbyroot)^2))
+```
+
+```{r appendix 2.5.4, fig.height=5, fig.width=7, echo = TRUE, eval=TRUE}
+fc.result.zero.diff <- ls.result.zero.diff.alpha$fc.result
+test.set.result.zero.diff <- ls.result.zero.diff.alpha$test.set.result
+
+rmse.zero.diff <- sqrt(rowMeans((fc.result.zero.diff - test.set.result.zero.diff)^2))
+```
+
+```{r appendix 2.5.5, fig.height=5, fig.width=7, echo = TRUE, eval=TRUE}
+fc.result.hybrid <- (fc.result.varindiffbyroot + fc.result.zero.diff) / 2
+test.set.result.hybrid <- test.set.result.zero.diff
+
+rmse.hybrid <- sqrt(rowMeans((fc.result.hybrid - test.set.result.hybrid)^2))
+```
+
+```{r appendix 2.5.6, fig.height=12, fig.width=10, echo = TRUE, eval=TRUE}
+model.name <- c("varindiffbyroot",
+                   "zero diff Arima",
+                "Hybrid")
+
+average.rmse <- c(mean(rmse.varindiffbyroot),
+                    mean(rmse.zero.diff),
+                    mean(rmse.hybrid))
+
+sd.rmse <- c(sd(rmse.varindiffbyroot),
+                    sd(rmse.zero.diff),
+                    sd(rmse.hybrid))
+
+
+df.accuracy <- data.frame(model = model.name,
+                          average.rmse = average.rmse,
+                          sd.rmse = sd.rmse)
+
+print(df.accuracy)
+
+
+
+```
+
+
+
+## Check if the last seq number is same for every test? 
+
+
+
